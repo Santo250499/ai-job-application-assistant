@@ -1,110 +1,69 @@
 # AI Job Application Assistant
 
-A Streamlit app that scores a resume against a job description and uses the OpenAI API to draft an updated CV, a tone-selectable cover letter, recruiter outreach, and interview preparation.
-
-Built by [Md Tanvir Mannan](https://github.com/Santo250499) as a portfolio project while moving from IT support into AI and automation roles.
+A Streamlit app that scores a resume against a job description with a local heuristic, then uses the OpenAI API to draft an updated CV, a cover letter, recruiter outreach, and interview preparation for the Australian job market.
 
 Repository: https://github.com/Santo250499/ai-job-application-assistant
 
-## Problem
+## Purpose
 
-Each application asks for the same set of materials, rewritten for a different job description: a CV, a cover letter, a short note to a recruiter, and answers you can use in an interview. Doing that by hand is slow. Handing the whole task to a model, with no local check, also makes it hard to see why a resume matches or misses a role, especially for Australian applications where location, work rights, and straightforward CV structure matter.
+Job applications need a CV, a cover letter, a short note to a recruiter, and interview preparation, each rewritten for a different job description. This app reads a resume and a job description (uploaded or pasted), scores the match in Python, and sends that context to OpenAI. The model writes the analysis and the application drafts. The app scores each CV rewrite locally, keeps the strongest result from up to three attempts, and offers it as a downloadable PDF.
 
-## Solution
-
-The app reads a resume and a job description, scores the match with rules written in Python, and sends that context to OpenAI. The model writes an analysis, a cover letter in a tone you choose, a LinkedIn message and a hiring-manager email, and interview questions. It also rewrites the CV into structured JSON. The app scores each rewrite locally, keeps the strongest result from up to three attempts, and turns it into a PDF you can download.
-
-The prompts require Australian English and tell the model to use only details supported by the original resume: employers, dates, qualifications, certifications, work rights, and numbers.
+Prompts ask for Australian English and tell the model to use only details supported by the original resume. See [Limitations and notes](#limitations-and-notes) for what the app checks locally and what it leaves to the model.
 
 ## Features
 
-- Upload a resume and a job description as PDF, DOCX, or TXT, or paste either text into the page. Uploaded text is used for scoring and generation and is not shown back on the page.
-- Set a target role, an Australian target location, work rights or visa status, and career level.
+- Upload a resume and a job description as PDF, DOCX, or TXT, or paste either text. When an upload contains text, that text is used and the pasted text is ignored. Extracted file text is used for scoring and generation and is not shown on the page.
+- Application settings:
+  - **Target role** (free text)
+  - **Target location:** Australia-wide, Brisbane, Gold Coast, Sydney, Melbourne, Perth, Adelaide, Canberra, or Regional Australia
+  - **Work rights / visa status:** Prefer not to say, Australian Citizen, Permanent Resident, Full Working Rights, Temporary Graduate Visa 485, Student Visa, or Requires Sponsorship
+  - **Career level:** Entry Level, Junior, Mid Level, Senior, or Manager
+  - **Cover letter tone:** Professional, Confident, Friendly, Formal, or Short and Direct
 - Score the original resume from 0 to 100 and label it with a match band.
-- Show matched keywords and keywords that are still missing or weak. The missing list is a prompt to add them only when they are true.
-- Ask OpenAI for a structured analysis: match assessment, score explanation, strongest points, weak areas, Australian job-market advice, resume suggestions, keywords to strengthen, and what to fix first.
-- Write a cover letter in one of five tones: Professional, Confident, Friendly, Formal, or Short and Direct.
-- Write a LinkedIn recruiter message and a separate email to a hiring manager.
-- Write interview preparation: role-specific questions, behavioural questions, Australian workplace communication questions, and a short interview strategy. Each question includes a short answer tip.
-- Rewrite the CV up to three times, aiming for a local score of 80 out of 100, and download the best version as `ready_updated_cv_australia.pdf`.
-- Compare the original score with the updated CV score, including keyword alignment, structure, achievements, ATS quality, and Australian market fit.
-- Download the analysis, cover letter, recruiter outreach, and interview questions as text files.
-- Stop on startup with a clear error if `OPENAI_API_KEY` is missing.
+- Show up to 20 matched keywords and up to 20 missing or weak keywords from the job description.
+- Ask the model for a markdown analysis with these sections: honest match assessment, score explanation, strongest selling points, weak areas, Australian job-market advice, 10 resume rewrite suggestions, 12 keywords to add or strengthen, and a final recommendation.
+- Ask for a cover letter in the selected tone.
+- Ask for a LinkedIn recruiter message (under 90 words in the prompt) and an email to a hiring manager (under 130 words in the prompt).
+- Ask for interview preparation: 5 role-specific questions, 4 behavioural questions, and 3 Australian workplace communication questions, each with a short answer tip, plus an interview strategy.
+- Rewrite the CV as JSON up to three times, aiming for a local score of 80 out of 100. Each rewrite can be requested again up to three times if the reply is not valid JSON. The highest-scoring draft is rendered as an A4 PDF.
+- Compare the original score with the updated CV score, with a breakdown and a progress bar.
+- Download:
+  - `ready_updated_cv_australia.pdf`
+  - `ai_application_analysis_australia.txt`
+  - `cover_letter_australia.txt`
+  - `recruiter_message_australia.txt`
+  - `interview_questions_australia.txt`
+- Stop on startup with an error if `OPENAI_API_KEY` is missing. Results from a successful run stay in the Streamlit session until the next successful run replaces them.
+
+### How the score is calculated
+
+Scoring does not call the API. The total is capped at 100. Match bands are Excellent Match (85 and above), Target Score Reached (80–84), Strong Match (72–79), Moderate Match (58–71), Possible Match (45–57), and Needs Major Improvement (44 and below).
+
+| Check | Maximum | What it looks at |
+| --- | --- | --- |
+| Keyword alignment | 45 | Share of up to 40 job-description keywords found in the resume |
+| Resume structure | 15 | Five heading checks worth 3 points each: summary or profile, experience, education, skills, and projects or certifications |
+| Achievement evidence | 10 | Counts of numbers and a fixed list of action verbs, each capped before they are combined |
+| ATS quality | 15 | An email pattern (3), a phone-like number (3), the word “linkedin” (2), five or more bullet or hyphen characters (3), and word count (4 points for 300–1500 words, 2 points for 220–299 or 1501–1800) |
+| Australian market fit | 15 | Up to 8 points for Australian place names, work-rights phrases, and similar signals in the resume; 5 points when a work-rights option other than “Prefer not to say” is selected; 2 points when the selected city or region appears in the resume, otherwise 2 points when keyword overlap is at least 45% |
+
+Keywords come from a fixed list of IT, support, and related phrases found in the job description, plus frequent tokens from that description. Common hiring words such as “experience” and “skills” are dropped as stopwords.
 
 ## Tech stack
 
 | Piece | Role in this project |
 | --- | --- |
-| Python | Application language |
-| [Streamlit](https://streamlit.io/) | Web UI, file upload, settings, results, and downloads |
-| [OpenAI API](https://platform.openai.com/) | Text generation through the Responses API. `app.py` calls the `gpt-4.1-mini` model |
-| python-dotenv | Loads `OPENAI_API_KEY` from a local `.env` file |
-| pypdf | Reads uploaded PDF files |
-| python-docx | Reads uploaded DOCX files |
+| Python | Application language. The dev container image is Python 3.11. |
+| [Streamlit](https://streamlit.io/) | Page layout, file upload, settings, results, and downloads |
+| [OpenAI API](https://platform.openai.com/) | Text generation. `app.py` calls `gpt-4.1-mini` through the Responses API |
+| python-dotenv | Loads `.env` before `OPENAI_API_KEY` is read |
+| pypdf | Reads text from uploaded PDFs |
+| python-docx | Reads paragraph text from uploaded DOCX files |
 | ReportLab | Builds the updated CV PDF |
 
-`requirements.txt` lists those third-party packages and nothing else. The standard-library modules used by `app.py` (`os`, `re`, `json`, `html`, and `io`) are not pinned there.
+`requirements.txt` lists those packages with unpinned versions. `app.py` also uses the Python standard library (`os`, `re`, `json`, `html`, `io`).
 
-## How it works
-
-1. You attach or paste a resume and a job description, then set the target role, location, work rights, career level, and cover letter tone.
-2. PDF, DOCX, and TXT files are converted to plain text in the app. TXT is decoded as UTF-8.
-3. A local scorer compares the resume with the job description. It does not call the API.
-4. On **Analyse & Generate Ready CV PDF**, the app sends the resume, job description, score breakdown, and settings to OpenAI.
-5. One call writes the analysis, one writes the cover letter, one writes the LinkedIn message and hiring-manager email, and one writes the interview questions.
-6. A separate call asks for an updated CV as JSON. If the JSON cannot be parsed, that call is retried up to three times. The parsed CV is scored again with the same local rules.
-7. If the updated score is under 80, the app tries again with feedback about the missing keywords, up to three rewrite attempts in total. It keeps the highest-scoring CV.
-8. ReportLab renders that CV to PDF. Scores, keywords, and the four text outputs stay in the Streamlit session until you run the analysis again.
-
-### Match score
-
-The total is capped at 100. The parts below are the maximum each check can contribute.
-
-| Check | Maximum | What it looks at |
-| --- | --- | --- |
-| Keyword alignment | 45 | Overlap between job-description keywords and the resume |
-| Resume structure | 15 | Headings such as summary, experience, education, skills, and projects or certifications |
-| Achievement evidence | 10 | Numbers and action verbs in the resume |
-| ATS quality | 15 | Contact details, bullet-style lines, and resume length |
-| Australian market fit | 15 | Location and work-rights signals, plus the location and work-rights options you select |
-
-Match bands in the app are Excellent Match (85+), Target Score Reached (80+), Strong Match (72+), Moderate Match (58+), Possible Match (45+), and Needs Major Improvement below that.
-
-The keyword list used by the scorer includes general hiring terms and a large set of IT support terms (service desk, Microsoft 365, Active Directory, networking, and similar). That reflects the roles this project was written to practise on.
-
-## Architecture overview
-
-```mermaid
-flowchart TD
-    inputs[Resume and job description]
-    ui[Streamlit UI in app.py]
-    parse[Text extraction]
-    score[Local match scorer]
-    openai[OpenAI Responses API]
-    drafts[Analysis, cover letter, outreach, interview questions]
-    rewrite[CV JSON rewrite, up to 3 attempts]
-    pdf[ReportLab CV PDF]
-    results[Scores, keywords, and downloads]
-
-    inputs --> ui --> parse --> score --> openai
-    openai --> drafts --> results
-    openai --> rewrite
-    rewrite --> score
-    rewrite --> pdf --> results
-```
-
-Everything in the current version lives in `app.py`. Parsing, scoring, prompts, PDF layout, and the page are separate functions in that file.
-
-```text
-.
-├── app.py
-├── requirements.txt
-├── .env.example
-├── .gitignore
-└── .devcontainer/devcontainer.json
-```
-
-## Installation
+## Setup and run
 
 ```bash
 git clone https://github.com/Santo250499/ai-job-application-assistant.git
@@ -122,62 +81,63 @@ source .venv/bin/activate
 .venv\Scripts\activate
 ```
 
-Install dependencies:
+Install dependencies, create a local env file, and start the app:
 
 ```bash
 pip install -r requirements.txt
-```
-
-The dev container in `.devcontainer/devcontainer.json` uses Python 3.11, installs `requirements.txt`, and can start the app on port 8501. Local setup above is enough to run the project yourself.
-
-## Setup and configuration
-
-Copy the example environment file and add your own key:
-
-```bash
 cp .env.example .env
-```
-
-`.env.example` lists every variable the code reads:
-
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | Yes | Passed to the OpenAI client after `load_dotenv()` |
-
-`app.py` does not read any other environment variable. Leave the key only in `.env`. That file is gitignored. `.env.example` holds a placeholder and is safe to commit.
-
-When you click the analyse button, the resume text and job description are included in the prompts sent to OpenAI. The page does not display that extracted text, but the API request does contain it. Use a key and account you are willing to send that content through.
-
-## How to run
-
-From the project directory, with the virtual environment active and `.env` in place:
-
-```bash
 streamlit run app.py
 ```
 
-Streamlit serves the app at [http://localhost:8501](http://localhost:8501).
+Put your key in `.env`, then open [http://localhost:8501](http://localhost:8501).
 
-## Screenshots
+### Dev Container
 
-Screenshots are not in the repository yet. Add image files under `docs/screenshots/` and link them in this section. Useful shots to capture:
+`.devcontainer/devcontainer.json` uses the Python 3.11 Dev Container image, installs `requirements.txt` during container setup, and on attach starts:
 
-- The input page with a resume, a job description, and the application settings
-- The match dashboard with the original score, updated score, and keyword tags
-- The analysis, cover letter, recruiter outreach, and interview question tabs
+```bash
+streamlit run app.py --server.enableCORS false --server.enableXsrfProtection false
+```
 
-## Future improvements
+Port 8501 is forwarded and labeled “Application”.
 
-- Split `app.py` into modules for file parsing, scoring, OpenAI prompts, PDF generation, and the Streamlit layout.
-- Add tests for keyword extraction, the score breakdown, and JSON cleanup.
-- Pin versions in `requirements.txt`.
-- Add the screenshots described above.
-- Make the OpenAI model name configurable instead of hardcoding `gpt-4.1-mini`.
+## Environment variables
 
-## What I learned
+`app.py` reads one environment variable, through `load_dotenv()` and `os.getenv`:
 
-I came to this project from IT support, and I used a job-application workflow I already knew as the product to build. The useful part was keeping the match score in Python. The breakdown is something I can explain, and the model is asked to improve a CV against that score rather than being the only judge of quality. I also learned how much of a small AI app is ordinary software: reading PDF and DOCX files, holding results in session state, and rendering a PDF with ReportLab. The tone dropdown and the Australian work-rights fields taught me to put the choices I care about in the interface, then pass them into the prompt, instead of hoping a single generic request would cover them.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Yes | API key passed to the OpenAI client. If it is missing, the app shows an error and stops before the form is rendered. |
 
-## GitHub
+`.env.example` contains a placeholder only. Copy it to `.env` and replace the placeholder. `.env` is gitignored. `.env.example` is tracked.
 
-https://github.com/Santo250499/ai-job-application-assistant
+The resume and job description are included in the prompts sent to OpenAI when you run an analysis.
+
+## Project structure
+
+```text
+.
+├── app.py                          # Parsing, scoring, prompts, PDF layout, and the Streamlit page
+├── requirements.txt                # Third-party dependencies, versions unpinned
+├── .env.example                    # Placeholder for OPENAI_API_KEY
+├── .gitignore
+├── README.md
+└── .devcontainer/
+    └── devcontainer.json           # Optional Dev Container that installs dependencies and starts Streamlit
+```
+
+All of the application behaviour lives in `app.py`.
+
+## Limitations and notes
+
+- The match score is a local heuristic. It is a project-specific checklist, and a commercial applicant tracking system will score the same resume differently.
+- Keyword checks are case-insensitive substring matches, so a short term such as `sql` or `lan` can match inside a longer word. Section checks are substring searches for words such as “education” and “skills”, so those words count even when they are not headings.
+- Choosing any work-rights status other than “Prefer not to say” adds 5 Australian-market points even when the resume never states that status.
+- The bullet portion of the ATS check counts `•`, `-`, and `*` anywhere in the text, including hyphens inside words.
+- The CV target of 80 is a stop condition. The loop keeps the highest local score after at most three rewrites and can finish below 80.
+- Instructions not to invent employers, dates, qualifications, certifications, numbers, or work rights are prompt text. The app checks that a CV reply parses as JSON. It does not compare generated claims with the source resume.
+- A full run calls the API once each for the analysis, cover letter, outreach, and interview questions, then again for each CV rewrite. A rewrite that returns invalid JSON is requested up to three times.
+- PDF reading uses embedded text. A scanned PDF with no text layer produces an empty result. DOCX reading uses paragraph text and skips tables, headers, and footers. TXT files are decoded as UTF-8, and invalid bytes are ignored.
+- The model name `gpt-4.1-mini` is hardcoded. Dependency versions in `requirements.txt` are unpinned.
+- The dev container disables Streamlit CORS and XSRF protection so the forwarded port can open. The local `streamlit run app.py` command in this README leaves those settings at Streamlit’s defaults.
+- Results are kept in Streamlit session state for the current browser session.
